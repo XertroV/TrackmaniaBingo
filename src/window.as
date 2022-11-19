@@ -1,6 +1,6 @@
 
 namespace Window {
-    const bool CanAlwaysStart = false; // Debug constant 
+    const bool CanAlwaysStart = false; // Debug constant
     bool Visible;
     bool RoomCodeVisible;
 
@@ -27,6 +27,7 @@ namespace Window {
         }
         if (Network::RequestInProgress) {
             Disabled = true;
+            UI::Text("Timeout in: " + Text::Format("%.3f", float(Network::requestTimeToTimeout) / 1000.) + " s.");
         }
         if (Disabled) UI::BeginDisabled();
 
@@ -59,7 +60,7 @@ namespace Window {
 
     void CreateTab() {
         Room.MaxPlayers = Math::Clamp(UI::InputInt("Room Size", Room.MaxPlayers), 2, 32);
-        
+
         if (UI::BeginCombo("Map Selection", stringof(Room.MapSelection))) {
             if (UI::Selectable(stringof(MapMode::TOTD), Room.MapSelection == MapMode::TOTD)) {
                 Room.MapSelection = MapMode::TOTD;
@@ -130,7 +131,7 @@ namespace Window {
             UIColor::DarkGreen();
             bool StartDisabled = (Room.Players.Length < 2 && !CanAlwaysStart) || Room.MapsLoadingStatus != LoadStatus::LoadSuccess;
             if (StartDisabled) UI::BeginDisabled();
-            
+
             UI::SameLine();
             if (UI::Button(Icons::PlayCircleO + " Start")) {
                 startnew(Network::StartGame);

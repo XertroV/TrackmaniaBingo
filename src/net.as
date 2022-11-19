@@ -14,8 +14,13 @@ namespace Network {
     // Secret token provided by the server
     string Secret;
 
+    uint requestStart;
+    uint requestTimeoutAt;
+    int requestTimeToTimeout;
+
     void Loop() {
-        trace("Connecting to "+ Settings::BackendURL + ":" + Settings::TcpPort);
+        trace("Connecting to " + Settings::BackendURL + ":" + Settings::TcpPort);
+
         if (!EventStream.Connect(Settings::BackendURL, Settings::TcpPort)) {
             trace("Failed to open TCP connection.");
             IsLooping = false;
@@ -24,9 +29,21 @@ namespace Network {
         // Sleep a bit because for some reason the server takes
         // time to register the TCP connection (gotta love proxies)
         sleep(100);
-        
+        requestStart = Time::Now;
+        requestTimeoutAt = requestStart + 10000;
+
         // Identification
-        while (EventStream.Available() == 0) { yield(); }
+        while (EventStream.Available() == 0 && requestTimeoutAt > Time::Now) {
+            yield();
+            requestTimeToTimeout = int(requestTimeoutAt) - int(Time::Now);
+        }
+
+        if (requestTimeToTimeout < 0) {
+            trace('Timed out; returning.');
+            IsLooping = false;
+            return;
+        }
+
         string InitialResponse = EventStream.ReadRaw(EventStream.Available());
         if (InitialResponse.Length < SECRET_LENGTH) {
             IsLooping = false;
@@ -100,7 +117,7 @@ namespace Network {
             string DeltaFormatted = "-" + Time::Format(Body["delta"]);
             vec4 TeamColor = (Body["team"] == 0 ? vec4(.6, .2, .2, 1.) : vec4(.2, .2, .6, 1.));
             vec4 DimColor = TeamColor / 1.5;
-            
+
             if (!IsReclaim) {
                 UI::ShowNotification(Icons::Bookmark + " Map Claimed", PlayerName + " has claimed \\$fd8" + MapName + "\\$z for " + TeamName + " Team\n" + Result.Display(), TeamColor, 15000);
             } else if (IsImprovement) {
@@ -108,7 +125,7 @@ namespace Network {
             } else { // Reclaim
                 UI::ShowNotification(Icons::Retweet + " Map Reclaimed", PlayerName + " has reclaimed \\$fd8" + MapName + "\\$z for " + TeamName + " Team\n" + Result.Display() + " (" + DeltaFormatted + ")", TeamColor, 15000);
             }
-                
+
         } else if (Body["method"] == "GAME_END") {
             string TeamName = (Body["winner"] == 0 ? "\\$e33Red Team" : "\\$33eBlue Team");
             UI::ShowNotification(Icons::Trophy + " Bingo!", TeamName + "\\$z has won the game!", vec4(.6, .6, 0, 1), 20000);
@@ -161,8 +178,8 @@ namespace Network {
             UI::ShowNotification(Icons::Times + "Connection Failed", "The server could not be reached. Please check your connection. \n" + Request.Error(), vec4(.6, 0, 0, 1));
             return null;
         } else if (Request.ResponseCode() / 100 != 2) { // 2XX status code
-            UI::ShowNotification(Icons::Times + "Connection Error", "An error occured while communicating with the server. (Error " + Request.ResponseCode() + ")", vec4(.6, 0, 0, 1));  
-            return null; 
+            UI::ShowNotification(Icons::Times + "Connection Error", "An error occured while communicating with the server. (Error " + Request.ResponseCode() + ")", vec4(.6, 0, 0, 1));
+            return null;
         }
 
         return Request;
@@ -211,14 +228,14 @@ namespace Network {
             Reset();
             return;
         }
-        
+
         bool ShouldClose = true;
         if (Request.ResponseCode() == 204) {
-            UI::ShowNotification(Icons::Times + " No room was found with code " + Room.JoinCode + ".");  
+            UI::ShowNotification(Icons::Times + " No room was found with code " + Room.JoinCode + ".");
         } else if (Request.ResponseCode() == 298) {
             UI::ShowNotification(Icons::Times + " Sorry, this room is already full.");
         } else if (Request.ResponseCode() == 299) {
-            UI::ShowNotification(Icons::Times + " Sorry, the game has already started in this room.");  
+            UI::ShowNotification(Icons::Times + " Sorry, the game has already started in this room.");
         } else {
             // Success!
             auto JsonRoom = Json::Parse(Request.String());

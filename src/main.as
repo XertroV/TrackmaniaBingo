@@ -1,9 +1,9 @@
-const string WindowName = Icons::Th + " \\$zBingo";
+const string WindowName = Icons::Th + " \\$z" + Meta::ExecutingPlugin().Name;
 const string MenuItemName = "\\$ff0" + WindowName;
 
 void Main() {
     Font::Init();
-} 
+}
 
 void RenderMenu() {
     if (UI::MenuItem(MenuItemName, "", Window::Visible)) {
